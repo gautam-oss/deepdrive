@@ -1,0 +1,34 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["migrations", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "B008",  # do not perform function call in argument defaults (DRF uses this pattern)
+    "B904",  # raise from inside except — valid pattern in places
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*/settings/*" = ["F401", "F403"]  # wildcard imports in settings files are intentional
+"*/tests/*" = ["S101"]             # assert is expected in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.local"
+python_files = ["tests.py", "test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

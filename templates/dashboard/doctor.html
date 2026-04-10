@@ -1,0 +1,63 @@
+{% extends "base/layout.html" %}
+{% block title %}Doctor Dashboard{% endblock %}
+
+{% block content %}
+<h1>{{ doctor }} — {{ today }}</h1>
+
+<div class="grid-4">
+  <div class="card">
+    <h2>Appointments Today</h2>
+    <div class="number">{{ today_count }}</div>
+  </div>
+  <div class="card">
+    <h2>Upcoming</h2>
+    <div class="number">{{ upcoming|length }}</div>
+  </div>
+</div>
+
+<p class="section-title">Today's Schedule</p>
+<div class="card">
+  {% if today_appointments %}
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for appt in today_appointments %}
+      <tr>
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>{{ appt.patient.user.full_name }}</td>
+        <td>{{ appt.reason|truncatechars:40|default:"—" }}</td>
+        <td><span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p style="color:#888">No appointments today.</p>
+  {% endif %}
+</div>
+
+<p class="section-title">Upcoming Appointments</p>
+<div class="card">
+  {% if upcoming %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Time</th><th>Patient</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for appt in upcoming %}
+      <tr>
+        <td>{{ appt.scheduled_at|date:"M d" }}</td>
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>{{ appt.patient.user.full_name }}</td>
+        <td><span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p style="color:#888">No upcoming appointments.</p>
+  {% endif %}
+</div>
+{% endblock %}

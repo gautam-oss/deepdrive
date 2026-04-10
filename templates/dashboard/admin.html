@@ -1,0 +1,65 @@
+{% extends "base/layout.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<h1>Admin Dashboard — {{ today }}</h1>
+
+<div class="grid-4">
+  <div class="card">
+    <h2>Appointments Today</h2>
+    <div class="number">{{ stats.appointments_today }}</div>
+  </div>
+  <div class="card">
+    <h2>Total Patients</h2>
+    <div class="number">{{ stats.total_patients }}</div>
+  </div>
+  <div class="card">
+    <h2>Active Doctors</h2>
+    <div class="number">{{ stats.total_doctors }}</div>
+  </div>
+  <div class="card">
+    <h2>Total Staff</h2>
+    <div class="number">{{ stats.total_staff }}</div>
+  </div>
+</div>
+
+<p class="section-title">Today's Appointments</p>
+<div class="card">
+  {% if upcoming_appointments %}
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th><th>Patient</th><th>Doctor</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for appt in upcoming_appointments %}
+      <tr>
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>{{ appt.patient.user.full_name }}</td>
+        <td>{{ appt.doctor }}</td>
+        <td><span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p style="color:#888">No appointments scheduled for today.</p>
+  {% endif %}
+</div>
+
+<p class="section-title">Doctors</p>
+<div class="card">
+  <table>
+    <thead><tr><th>Name</th><th>Specializations</th></tr></thead>
+    <tbody>
+      {% for doctor in doctors %}
+      <tr>
+        <td>{{ doctor }}</td>
+        <td>{{ doctor.specializations.all|join:", " }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

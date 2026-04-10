@@ -1,5 +1,6 @@
 -r base.txt
 
+ruff==0.9.10
 django-debug-toolbar==5.2.0
 factory-boy==3.3.3
 Faker==37.1.0

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Clinic Dashboard{% endblock %}</title>
+  <!-- Alpine.js — lightweight interactivity -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f5; color: #1a1a1a; }
+    .nav { background: #1e3a5f; color: #fff; padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+    .nav a { color: #fff; text-decoration: none; font-size: 0.9rem; }
+    .nav-links { display: flex; gap: 1.5rem; }
+    .main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 1.25rem; margin-bottom: 1rem; }
+    .card h2 { font-size: 1rem; color: #555; margin-bottom: 0.5rem; }
+    .card .number { font-size: 2rem; font-weight: 700; color: #1e3a5f; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; background: #f0f0f0; border-bottom: 2px solid #ddd; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee; }
+    tr:hover td { background: #fafafa; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 600; }
+    .badge-confirmed { background: #d4edda; color: #155724; }
+    .badge-pending    { background: #fff3cd; color: #856404; }
+    .badge-cancelled  { background: #f8d7da; color: #721c24; }
+    .badge-no_show    { background: #d1ecf1; color: #0c5460; }
+    .badge-completed  { background: #cce5ff; color: #004085; }
+    .btn { padding: 0.4rem 0.85rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
+    .btn-primary { background: #1e3a5f; color: #fff; }
+    .btn-danger  { background: #dc3545; color: #fff; }
+    h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+    .section-title { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; color: #333; }
+    .alert { padding: 0.75rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+    .alert-warning { background: #fff3cd; border: 1px solid #ffc107; color: #856404; }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="nav">
+    <strong>ClinicOS</strong>
+    <div class="nav-links">
+      <a href="{% url 'dashboard:home' %}">Dashboard</a>
+      {% if request.user.role == 'admin' or request.user.role == 'receptionist' %}
+        <a href="{% url 'dashboard:receptionist' %}">Appointments</a>
+      {% endif %}
+      <a href="/accounts/logout/">Logout ({{ request.user.first_name }})</a>
+    </div>
+  </nav>
+
+  <main class="main">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

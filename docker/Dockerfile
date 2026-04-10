@@ -16,6 +16,13 @@ RUN pip install --no-cache-dir --prefer-binary -r requirements/production.txt
 
 COPY . .
 
-RUN python manage.py collectstatic --noinput
+# collectstatic requires SECRET_KEY — pass a dummy at build time only.
+# Real secrets are injected at runtime via environment/Secrets Manager.
+RUN SECRET_KEY=build-time-placeholder \
+    DB_NAME=placeholder \
+    DB_USER=placeholder \
+    DB_PASSWORD=placeholder \
+    FIELD_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    python manage.py collectstatic --noinput
 
 EXPOSE 8000

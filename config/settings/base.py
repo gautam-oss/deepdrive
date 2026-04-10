@@ -72,6 +72,8 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "axes.middleware.AxesMiddleware",
     "django_structlog.middlewares.RequestMiddleware",
+    # Must be after AuthenticationMiddleware so request.user is available
+    "apps.audit.middleware.AuditMiddleware",
 ]
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Your Clinic — ClinicOS</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; display: flex; justify-content: center; padding: 2rem; }
+    .form-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 2rem; width: 100%; max-width: 520px; }
+    h1 { font-size: 1.4rem; margin-bottom: 1.5rem; color: #1e3a5f; }
+    .field { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
+    input, select { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    .error { color: #dc3545; font-size: 0.8rem; margin-top: 0.25rem; }
+    .section-divider { border-top: 1px solid #eee; margin: 1.25rem 0 1rem; padding-top: 1rem; font-weight: 600; font-size: 0.875rem; color: #555; }
+    .btn { width: 100%; padding: 0.65rem; background: #1e3a5f; color: #fff; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; margin-top: 1rem; }
+    .btn:hover { background: #16304f; }
+  </style>
+</head>
+<body>
+  <div class="form-card">
+    <h1>Register Your Clinic</h1>
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="section-divider">Clinic Info</div>
+
+      <div class="field">
+        <label for="id_clinic_name">Clinic Name</label>
+        {{ form.clinic_name }}
+        {% for error in form.clinic_name.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="field">
+        <label for="id_clinic_email">Clinic Email</label>
+        {{ form.clinic_email }}
+        {% for error in form.clinic_email.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <div class="field">
+        <label for="id_timezone">Timezone</label>
+        {{ form.timezone }}
+      </div>
+
+      <div class="section-divider">Admin Account</div>
+
+      <div class="field">
+        <label for="id_admin_first_name">First Name</label>
+        {{ form.admin_first_name }}
+      </div>
+
+      <div class="field">
+        <label for="id_admin_last_name">Last Name</label>
+        {{ form.admin_last_name }}
+      </div>
+
+      <div class="field">
+        <label for="id_admin_email">Admin Email</label>
+        {{ form.admin_email }}
+        {% for error in form.admin_email.errors %}<div class="error">{{ error }}</div>{% endfor %}
+      </div>
+
+      <button type="submit" class="btn">Create Clinic</button>
+    </form>
+  </div>
+</body>
+</html>

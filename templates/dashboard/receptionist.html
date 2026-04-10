@@ -1,0 +1,65 @@
+{% extends "base/layout.html" %}
+{% block title %}Receptionist Dashboard{% endblock %}
+
+{% block content %}
+<h1>Today's Appointments — {{ today }}</h1>
+
+<div class="grid-4">
+  <div class="card">
+    <h2>Confirmed</h2>
+    <div class="number">{{ confirmed_count }}</div>
+  </div>
+  <div class="card">
+    <h2>Pending</h2>
+    <div class="number">{{ pending_count }}</div>
+  </div>
+  <div class="card">
+    <h2>No-Show</h2>
+    <div class="number">{{ no_show_count }}</div>
+  </div>
+  <div class="card" style="display:flex;align-items:center;justify-content:center;">
+    <a href="/api/v1/appointments/" class="btn btn-primary">+ New Appointment</a>
+  </div>
+</div>
+
+<div class="card" x-data="{ filter: 'all' }">
+  <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+    <button class="btn btn-primary" @click="filter='all'">All</button>
+    <button class="btn btn-primary" @click="filter='confirmed'">Confirmed</button>
+    <button class="btn btn-primary" @click="filter='pending'">Pending</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th><th>Patient</th><th>Doctor</th>
+        <th>Status</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for appt in today_appointments %}
+      <tr x-show="filter === 'all' || filter === '{{ appt.status }}'">
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>{{ appt.patient.user.full_name }}</td>
+        <td>{{ appt.doctor }}</td>
+        <td>
+          <span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span>
+        </td>
+        <td>
+          {% if appt.status == 'confirmed' or appt.status == 'pending' %}
+          <form method="post" action="/api/v1/appointments/{{ appt.pk }}/cancel/"
+                style="display:inline"
+                onsubmit="return confirm('Cancel this appointment?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" style="font-size:0.75rem">Cancel</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" style="color:#888;text-align:center;padding:1rem">No appointments today.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

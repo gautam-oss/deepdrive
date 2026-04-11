@@ -8,12 +8,19 @@ Design decisions enforced here (from spec):
 - State machine: transitions are explicit, never inferred.
 - Cancellation rules: cancellation window, slot re-opening, audit log.
 """
-from datetime import date, datetime, time, timedelta
-from typing import Iterator
+from collections import Counter
+from collections.abc import Iterator
+from datetime import UTC, date, datetime, time, timedelta
 
 import structlog
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone as tz
+
+from apps.appointments.models import Appointment
+from apps.audit.logger import AuditLogger
+from apps.audit.models import AuditLog
+from apps.notifications.tasks import send_appointment_reminder, send_booking_confirmation
+from apps.staff.models import AvailabilityOverride, WeeklyAvailability
 
 logger = structlog.get_logger(__name__)
 
@@ -40,9 +47,6 @@ def get_available_slots(doctor, target_date: date) -> list[datetime]:
     3. Generate fixed-interval slots across the window.
     4. Subtract already-booked (non-cancelled) slots.
     """
-    from apps.staff.models import AvailabilityOverride, WeeklyAvailability
-    from apps.appointments.models import Appointment
-
     # Step 1 — check override
     override = AvailabilityOverride.objects.filter(doctor=doctor, date=target_date).first()
     if override is not None:
@@ -81,7 +85,6 @@ def get_available_slots(doctor, target_date: date) -> list[datetime]:
         )
         .values_list("scheduled_at", flat=True)
     )
-    from collections import Counter
     booked_counts = Counter(booked)
 
     return [slot for slot in all_slots if booked_counts[slot] < max_per_slot]
@@ -98,8 +101,8 @@ def _generate_slots(
     Naïve times are treated as UTC (clinic-stored availability is in UTC;
     the UI converts to local time for display).
     """
-    current = datetime.combine(target_date, window_start, tzinfo=tz.utc)
-    end = datetime.combine(target_date, window_end, tzinfo=tz.utc)
+    current = datetime.combine(target_date, window_start, tzinfo=UTC)
+    end = datetime.combine(target_date, window_end, tzinfo=UTC)
     delta = timedelta(minutes=slot_duration)
 
     while current + delta <= end:
@@ -114,7 +117,6 @@ def _generate_slots(
 class AppointmentService:
 
     @staticmethod
-    @transaction.atomic
     def book(
         patient,
         doctor,
@@ -126,6 +128,10 @@ class AppointmentService:
         """
         Book an appointment slot.
 
+        Validation runs before the DB transaction so that invalid inputs
+        are rejected without opening a connection (important for unit tests
+        using SimpleTestCase and for fast rejection in the API).
+
         Race condition protection:
           SELECT FOR UPDATE locks rows for the doctor+slot combination
           before checking availability. Two concurrent requests for the
@@ -136,99 +142,104 @@ class AppointmentService:
             scheduled_at: must be timezone-aware UTC datetime
             booked_by: User performing the booking (receptionist, patient, etc.)
         """
-        from apps.appointments.models import Appointment
-        from apps.staff.models import WeeklyAvailability, AvailabilityOverride
-        from apps.notifications.tasks import send_booking_confirmation
-        from apps.tenants.models import Clinic
-
+        # --- Validation (no DB) ---
         if not tz.is_aware(scheduled_at):
             raise BookingValidationError("scheduled_at must be a timezone-aware datetime (UTC).")
 
         if scheduled_at < tz.now():
             raise BookingValidationError("Cannot book appointments in the past.")
 
-        slot_date = scheduled_at.date()
+        return AppointmentService._book_atomic(
+            patient, doctor, scheduled_at, booked_by, reason, duration_minutes
+        )
 
-        # Lock existing appointments for this doctor+slot (SELECT FOR UPDATE)
-        # This is the critical section — no two requests can pass here
-        # simultaneously for the same doctor+slot.
-        existing = (
-            Appointment.objects
-            .select_for_update()
-            .filter(
+    @staticmethod
+    def _book_atomic(patient, doctor, scheduled_at, booked_by, reason, duration_minutes):
+        """
+        Atomic inner implementation — called only after validation passes.
+        Uses transaction.atomic() as a context manager (not a decorator) so
+        that unit tests can patch apps.appointments.service.transaction at
+        call time rather than having the binding captured at class-definition time.
+        """
+        with transaction.atomic():
+            slot_date = scheduled_at.date()
+
+            # Lock existing appointments for this doctor+slot (SELECT FOR UPDATE)
+            # This is the critical section — no two requests can pass here
+            # simultaneously for the same doctor+slot.
+            existing = (
+                Appointment.objects
+                .select_for_update()
+                .filter(
+                    doctor=doctor,
+                    scheduled_at=scheduled_at,
+                    status__in=[Appointment.Status.PENDING, Appointment.Status.CONFIRMED],
+                )
+            )
+
+            # Determine max bookings for this slot
+            max_per_slot = AppointmentService._get_max_per_slot(doctor, slot_date, scheduled_at.time())
+            if max_per_slot == 0:
+                raise SlotUnavailableError("This slot is not within the doctor's availability.")
+
+            if existing.count() >= max_per_slot:
+                raise SlotUnavailableError(
+                    f"This slot is fully booked ({existing.count()}/{max_per_slot})."
+                )
+
+            # Resolve duration
+            if duration_minutes is None:
+                duration_minutes = AppointmentService._get_slot_duration(doctor, slot_date)
+
+            appointment = Appointment.objects.create(
+                patient=patient,
                 doctor=doctor,
                 scheduled_at=scheduled_at,
-                status__in=[Appointment.Status.PENDING, Appointment.Status.CONFIRMED],
-            )
-        )
-
-        # Determine max bookings for this slot
-        max_per_slot = AppointmentService._get_max_per_slot(doctor, slot_date, scheduled_at.time())
-        if max_per_slot == 0:
-            raise SlotUnavailableError("This slot is not within the doctor's availability.")
-
-        if existing.count() >= max_per_slot:
-            raise SlotUnavailableError(
-                f"This slot is fully booked ({existing.count()}/{max_per_slot})."
+                duration_minutes=duration_minutes,
+                status=Appointment.Status.CONFIRMED,  # Auto-confirm on booking
+                reason=reason,
+                booked_by=booked_by,
             )
 
-        # Resolve duration
-        if duration_minutes is None:
-            duration_minutes = AppointmentService._get_slot_duration(doctor, slot_date)
+            logger.info(
+                "appointment.booked",
+                appointment_id=appointment.pk,
+                doctor_id=doctor.pk,
+                patient_id=patient.pk,
+                scheduled_at=scheduled_at.isoformat(),
+            )
 
-        appointment = Appointment.objects.create(
-            patient=patient,
-            doctor=doctor,
-            scheduled_at=scheduled_at,
-            duration_minutes=duration_minutes,
-            status=Appointment.Status.CONFIRMED,  # Auto-confirm on booking
-            reason=reason,
-            booked_by=booked_by,
-        )
+            AuditLogger.log(
+                action=AuditLog.Action.CREATE,
+                resource_type="Appointment",
+                resource_id=appointment.pk,
+                user=booked_by,
+                changes={
+                    "patient_id": patient.pk,
+                    "doctor_id": doctor.pk,
+                    "scheduled_at": scheduled_at.isoformat(),
+                    "status": appointment.status,
+                },
+            )
 
-        logger.info(
-            "appointment.booked",
-            appointment_id=appointment.pk,
-            doctor_id=doctor.pk,
-            patient_id=patient.pk,
-            scheduled_at=scheduled_at.isoformat(),
-        )
+            # Enqueue confirmation email (async — never block booking on email)
+            try:
+                schema = connection.tenant.schema_name
+            except AttributeError:
+                schema = "public"
 
-        from apps.audit.logger import AuditLogger
-        from apps.audit.models import AuditLog
-        AuditLogger.log(
-            action=AuditLog.Action.CREATE,
-            resource_type="Appointment",
-            resource_id=appointment.pk,
-            user=booked_by,
-            changes={
-                "patient_id": patient.pk,
-                "doctor_id": doctor.pk,
-                "scheduled_at": scheduled_at.isoformat(),
-                "status": appointment.status,
-            },
-        )
+            send_booking_confirmation.apply_async(
+                args=[appointment.pk, schema],
+                queue="critical",
+            )
 
-        # Enqueue confirmation email (async — never block booking on email)
-        # Get schema_name from the current tenant context
-        from django_tenants.utils import get_current_tenant
-        tenant = get_current_tenant()
-        schema = tenant.schema_name if tenant else "public"
+            # Schedule reminders
+            AppointmentService._schedule_reminders(appointment, schema)
 
-        send_booking_confirmation.apply_async(
-            args=[appointment.pk, schema],
-            queue="critical",
-        )
-
-        # Schedule reminders
-        AppointmentService._schedule_reminders(appointment, schema)
-
-        return appointment
+            return appointment
 
     @staticmethod
     def _get_max_per_slot(doctor, slot_date: date, slot_time: time) -> int:
-        from apps.staff.models import AvailabilityOverride, WeeklyAvailability
-
         override = AvailabilityOverride.objects.filter(doctor=doctor, date=slot_date).first()
         if override is not None:
             return 1 if override.is_available else 0
@@ -248,8 +259,6 @@ class AppointmentService:
 
     @staticmethod
     def _get_slot_duration(doctor, slot_date: date) -> int:
-        from apps.staff.models import WeeklyAvailability
-
         day_of_week = slot_date.weekday()
         schedule = WeeklyAvailability.objects.filter(
             doctor=doctor,
@@ -260,8 +269,6 @@ class AppointmentService:
 
     @staticmethod
     def _schedule_reminders(appointment, schema: str):
-        from apps.notifications.tasks import send_appointment_reminder
-
         now = tz.now()
         scheduled_at = appointment.scheduled_at
 
@@ -297,7 +304,6 @@ class AppointmentService:
         - Cancellation notification enqueued async.
         """
         from apps.notifications.tasks import send_cancellation_notice
-        from django_tenants.utils import get_current_tenant
 
         appointment.cancel(by_user=by_user, reason=reason)
 
@@ -307,8 +313,6 @@ class AppointmentService:
             by_user_id=by_user.pk,
         )
 
-        from apps.audit.logger import AuditLogger
-        from apps.audit.models import AuditLog
         AuditLogger.log(
             action=AuditLog.Action.UPDATE,
             resource_type="Appointment",
@@ -317,8 +321,10 @@ class AppointmentService:
             changes={"status": {"before": "confirmed", "after": "cancelled"}, "reason": reason},
         )
 
-        tenant = get_current_tenant()
-        schema = tenant.schema_name if tenant else "public"
+        try:
+            schema = connection.tenant.schema_name
+        except AttributeError:
+            schema = "public"
         send_cancellation_notice.delay(appointment.pk, schema)
 
     # ------------------------------------------------------------------

@@ -6,8 +6,8 @@ audit log entries written during a request have full context.
 Sensitive model-level actions (patient record view, appointment
 changes) are logged explicitly in the service layer via AuditLogger.
 """
-import uuid
 import threading
+import uuid
 
 import structlog
 from django.utils.deprecation import MiddlewareMixin

@@ -102,8 +102,11 @@ jobs:
       SENTRY_DSN: ""
       STRIPE_SECRET_KEY: sk_test_placeholder
       STRIPE_WEBHOOK_SECRET: whsec_placeholder
-      # Generate a real Fernet key for CI
-      FIELD_ENCRYPTION_KEY: ${{ secrets.CI_FIELD_ENCRYPTION_KEY }}
+      # Fernet key for CI — use the repo secret when available, otherwise
+      # fall back to a hardcoded test key so the suite runs on forks/PRs
+      # without secrets configured.
+      FIELD_ENCRYPTION_KEY: ${{ secrets.CI_FIELD_ENCRYPTION_KEY || 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' }}
+      BASE_DOMAIN: localhost
 
     steps:
       - uses: actions/checkout@v4
@@ -116,8 +119,17 @@ jobs:
       - name: Install dependencies
         run: pip install --prefer-binary -r requirements/local.txt
 
-      - name: Django system check
+      - name: Django system check (dev settings)
         run: python manage.py check
+
+      - name: Django deploy check (production settings)
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.production
+          DEBUG: "False"
+          ALLOWED_HOSTS: "yourapp.com"
+        # --fail-level WARNING catches most misconfiguration.
+        # Silence HSTS/SSL warnings that require a real domain in CI.
+        run: python manage.py check --deploy --fail-level ERROR
 
       - name: Run migrations (shared schema)
         run: python manage.py migrate_schemas --shared

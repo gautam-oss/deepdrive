@@ -2,9 +2,9 @@ import stripe
 import structlog
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 logger = structlog.get_logger(__name__)
 

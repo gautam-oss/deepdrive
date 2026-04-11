@@ -1,0 +1,1 @@
+Your appointment on {{ appointment.scheduled_at|date:"N j" }} has been cancelled

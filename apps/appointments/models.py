@@ -115,10 +115,10 @@ class Appointment(models.Model):
         if self.status in (self.Status.COMPLETED, self.Status.CANCELLED, self.Status.NO_SHOW):
             raise ValueError(f"Cannot cancel appointment in status '{self.status}'")
         self.status = self.Status.CANCELLED
-        self.cancelled_by = by_user
+        self.cancelled_by_id = by_user.pk if by_user else None
         self.cancellation_reason = reason
         self.cancelled_at = tz.now()
-        self.save(update_fields=["status", "cancelled_by", "cancellation_reason", "cancelled_at", "updated_at"])
+        self.save(update_fields=["status", "cancelled_by_id", "cancellation_reason", "cancelled_at", "updated_at"])
 
     def mark_no_show(self):
         if self.status != self.Status.CONFIRMED:

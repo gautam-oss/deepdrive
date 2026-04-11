@@ -1,6 +1,5 @@
-from celery import shared_task
-from django.utils import timezone as tz
 import structlog
+from celery import shared_task
 
 logger = structlog.get_logger(__name__)
 
@@ -11,7 +10,7 @@ def send_welcome_email(self, user_id: int, tenant_schema: str):
     Send welcome email to new clinic admin after provisioning.
     Includes a password-reset link so they can set their own password.
     """
-    from django_tenants.utils import tenant_context, get_tenant_model
+    from django_tenants.utils import get_tenant_model, tenant_context
 
     Tenant = get_tenant_model()
     try:
@@ -26,10 +25,15 @@ def send_welcome_email(self, user_id: int, tenant_schema: str):
 
         try:
             user = User.objects.get(pk=user_id)
+            password_reset_url = _build_password_reset_url(user, tenant)
             NotificationService.send(
                 user=user,
                 notification_type="welcome",
-                context={"user": user, "clinic": tenant},
+                context={
+                    "user": user,
+                    "clinic": tenant,
+                    "password_reset_url": password_reset_url,
+                },
             )
         except User.DoesNotExist:
             logger.error("send_welcome_email.user_not_found", user_id=user_id)
@@ -45,7 +49,7 @@ def send_booking_confirmation(self, appointment_id: int, tenant_schema: str):
     Runs on the 'critical' queue — must not be delayed by lower-priority tasks.
     Tenant context must be set explicitly before any DB access.
     """
-    from django_tenants.utils import tenant_context, get_tenant_model
+    from django_tenants.utils import get_tenant_model, tenant_context
 
     Tenant = get_tenant_model()
     try:
@@ -78,7 +82,7 @@ def send_appointment_reminder(self, appointment_id: int, tenant_schema: str, rem
     Send 24h or 1h appointment reminder.
     Scheduled by Celery Beat. reminder_type: '24h' or '1h'.
     """
-    from django_tenants.utils import tenant_context, get_tenant_model
+    from django_tenants.utils import get_tenant_model, tenant_context
 
     Tenant = get_tenant_model()
     try:
@@ -121,7 +125,7 @@ def send_appointment_reminder(self, appointment_id: int, tenant_schema: str, rem
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def send_cancellation_notice(self, appointment_id: int, tenant_schema: str):
     """Send appointment cancellation notice to patient."""
-    from django_tenants.utils import tenant_context, get_tenant_model
+    from django_tenants.utils import get_tenant_model, tenant_context
 
     Tenant = get_tenant_model()
     try:
@@ -154,9 +158,9 @@ def send_billing_notification(self, schema_name: str, notification_type: str, pa
     Send a billing-related email to the clinic admin (e.g. payment confirmation, failed payment).
     Runs in the public schema — billing lives in public, not per-tenant.
     """
-    from apps.billing.models import ClinicSubscription
-    from apps.tenants.models import Clinic
     from django_tenants.utils import tenant_context
+
+    from apps.tenants.models import Clinic
 
     try:
         clinic = Clinic.objects.get(schema_name=schema_name)
@@ -182,3 +186,31 @@ def send_billing_notification(self, schema_name: str, notification_type: str, pa
         except Exception as exc:
             logger.exception("send_billing_notification.failed", schema=schema_name)
             raise self.retry(exc=exc)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _build_password_reset_url(user, tenant) -> str:
+    """
+    Generate a one-time password-reset URL for a newly provisioned user.
+    The URL is absolute and points to the clinic's own subdomain.
+    """
+    from django.conf import settings
+    from django.contrib.auth.tokens import default_token_generator
+    from django.utils.encoding import force_bytes
+    from django.utils.http import urlsafe_base64_encode
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+
+    # Build the base URL from the clinic's primary domain
+    try:
+        domain = tenant.get_primary_domain().domain
+        scheme = "https" if not settings.DEBUG else "http"
+        base_url = f"{scheme}://{domain}"
+    except Exception:
+        base_url = ""
+
+    return f"{base_url}/accounts/password/reset/key/{uid}-{token}/"

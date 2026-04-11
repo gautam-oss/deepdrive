@@ -11,15 +11,11 @@ Covers:
 These tests use unit-level mocking (no Stripe API calls, no DB).
 Integration tests that hit a real DB will be added once CI Postgres is up.
 """
-import json
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
-import pytest
 from django.test import SimpleTestCase
 
-from apps.billing.webhooks import StripeWebhookProcessor, _STATUS_MAP
-
+from apps.billing.webhooks import _STATUS_MAP, StripeWebhookProcessor
 
 # ---------------------------------------------------------------------------
 # Helpers

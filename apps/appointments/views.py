@@ -1,22 +1,27 @@
-from rest_framework import viewsets, status
+import structlog
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-import structlog
 
-from apps.authentication.permissions import (
-    IsStaff, IsAdminOrReceptionist, CanCancelAppointment,
-    IsPatient, TenantIsolationMixin,
-)
 from apps.appointments.models import Appointment
 from apps.appointments.serializers import (
     AppointmentSerializer,
+    AvailableSlotsSerializer,
     BookAppointmentSerializer,
     CancelAppointmentSerializer,
-    AvailableSlotsSerializer,
 )
-from apps.appointments.service import AppointmentService, SlotUnavailableError, BookingValidationError
+from apps.appointments.service import (
+    AppointmentService,
+    BookingValidationError,
+    SlotUnavailableError,
+)
 from apps.audit.logger import AuditLogger
 from apps.audit.models import AuditLog
+from apps.authentication.permissions import (
+    CanCancelAppointment,
+    IsStaff,
+    TenantIsolationMixin,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -53,6 +58,10 @@ class AppointmentViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == "cancel":
             return [CanCancelAppointment()]
+        if self.action == "create":
+            # Patients can book for themselves; staff can book for any patient.
+            from rest_framework.permissions import IsAuthenticated
+            return [IsAuthenticated()]
         return [IsStaff()]
 
     def create(self, request, *args, **kwargs):
@@ -141,8 +150,8 @@ class AppointmentViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        from apps.staff.models import Doctor
         from apps.appointments.service import get_available_slots
+        from apps.staff.models import Doctor
 
         doctor = Doctor.objects.get(pk=data["doctor_id"])
         slots = get_available_slots(doctor, data["date"])

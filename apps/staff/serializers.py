@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from apps.staff.models import Doctor, Specialization, WeeklyAvailability, AvailabilityOverride
+
+from apps.staff.models import AvailabilityOverride, Doctor, Specialization, WeeklyAvailability
 
 
 class SpecializationSerializer(serializers.ModelSerializer):

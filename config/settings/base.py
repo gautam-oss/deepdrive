@@ -207,6 +207,12 @@ CELERY_TASK_ROUTES = {
 # ---------------------------------------------------------------------------
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+# SMTP transport settings — only used when EMAIL_BACKEND = smtp.EmailBackend
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 
 # ---------------------------------------------------------------------------
 # Sentry (PHI scrubbing configured before any real data)
@@ -276,6 +282,12 @@ REST_FRAMEWORK = {
 # In production: pulled from AWS Secrets Manager / Vault at startup.
 # ---------------------------------------------------------------------------
 FIELD_ENCRYPTION_KEY = env("FIELD_ENCRYPTION_KEY", default="")
+
+# ---------------------------------------------------------------------------
+# Multi-tenancy base domain
+# Clinic "acme" → acme.<BASE_DOMAIN>. Must be set before provision_clinic runs.
+# ---------------------------------------------------------------------------
+BASE_DOMAIN = env("BASE_DOMAIN", default="localhost")
 
 # ---------------------------------------------------------------------------
 # django-guardian anonymous user

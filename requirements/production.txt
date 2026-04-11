@@ -1,3 +1,4 @@
 -r base.txt
 
 uvicorn[standard]==0.34.2
+django-celery-beat==2.9.0

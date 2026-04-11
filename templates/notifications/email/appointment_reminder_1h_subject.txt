@@ -1,0 +1,1 @@
+Reminder: appointment in 1 hour at {{ appointment.scheduled_at|time:"H:i" }}

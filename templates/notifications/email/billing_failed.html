@@ -1,0 +1,30 @@
+{% extends "notifications/email/base_email.html" %}
+
+{% block header %}Payment Failed — Action Required{% endblock %}
+
+{% block content %}
+<p>Hi,</p>
+<p>We were unable to process your payment for <strong>{{ clinic.name }}</strong>. Your account may be affected if payment is not updated.</p>
+
+{% if payload %}
+<div class="detail-box">
+  {% if payload.amount %}
+  <div class="detail-row">
+    <span class="detail-label">Amount due</span>
+    <span class="detail-value">${{ payload.amount }}</span>
+  </div>
+  {% endif %}
+  {% if payload.failure_reason %}
+  <div class="detail-row">
+    <span class="detail-label">Reason</span>
+    <span class="detail-value">{{ payload.failure_reason }}</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<p>Please update your payment method as soon as possible to avoid service interruption.</p>
+<p style="font-size: 0.875rem; color: #666;">
+  If you believe this is an error, please contact us.
+</p>
+{% endblock %}

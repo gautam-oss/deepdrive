@@ -1,17 +1,20 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
+from rest_framework import viewsets
 
-from apps.authentication.permissions import (
-    IsAdminOrReceptionist, IsDoctor, IsStaff, TenantIsolationMixin,
-)
-from apps.authentication.models import User
-from apps.staff.models import Doctor, WeeklyAvailability, AvailabilityOverride
-from apps.staff.serializers import (
-    DoctorSerializer, WeeklyAvailabilitySerializer, AvailabilityOverrideSerializer,
-)
 from apps.audit.logger import AuditLogger
 from apps.audit.models import AuditLog
+from apps.authentication.models import User
+from apps.authentication.permissions import (
+    IsClinicAdmin,
+    IsDoctor,
+    IsStaff,
+    TenantIsolationMixin,
+)
+from apps.staff.models import AvailabilityOverride, Doctor, WeeklyAvailability
+from apps.staff.serializers import (
+    AvailabilityOverrideSerializer,
+    DoctorSerializer,
+    WeeklyAvailabilitySerializer,
+)
 
 
 class DoctorViewSet(TenantIsolationMixin, viewsets.ReadOnlyModelViewSet):
@@ -34,8 +37,8 @@ class WeeklyAvailabilityViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
     Doctor weekly availability schedules.
 
     Admin can edit any doctor's schedule.
-    Doctor can edit only their own.
-    Receptionist is read-only.
+    Doctor can edit only their own (queryset-scoped).
+    Receptionist: read-only.
     """
     serializer_class = WeeklyAvailabilitySerializer
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
@@ -50,8 +53,10 @@ class WeeklyAvailabilityViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [IsStaff()]
-        # Mutations: admin unrestricted, doctor own-only (enforced by queryset)
-        return [IsAdminOrReceptionist() if self.request.user.role != User.Role.DOCTOR else IsDoctor()]
+        # Mutations: admin (any doctor) or doctor (own only — enforced by queryset)
+        if self.request.user.role == User.Role.DOCTOR:
+            return [IsDoctor()]
+        return [IsClinicAdmin()]
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -81,7 +86,8 @@ class AvailabilityOverrideViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
     """
     Per-date availability overrides.
     Admin can manage any doctor's overrides.
-    Doctor can manage their own.
+    Doctor can manage their own (queryset-scoped).
+    Receptionist: read-only.
     """
     serializer_class = AvailabilityOverrideSerializer
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
@@ -96,7 +102,9 @@ class AvailabilityOverrideViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [IsStaff()]
-        return [IsAdminOrReceptionist() if self.request.user.role != User.Role.DOCTOR else IsDoctor()]
+        if self.request.user.role == User.Role.DOCTOR:
+            return [IsDoctor()]
+        return [IsClinicAdmin()]
 
     def perform_create(self, serializer):
         user = self.request.user

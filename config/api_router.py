@@ -1,9 +1,8 @@
 from rest_framework.routers import DefaultRouter
-from django.urls import path, include
 
 from apps.appointments.views import AppointmentViewSet
 from apps.patients.views import PatientViewSet
-from apps.staff.views import DoctorViewSet, WeeklyAvailabilityViewSet, AvailabilityOverrideViewSet
+from apps.staff.views import AvailabilityOverrideViewSet, DoctorViewSet, WeeklyAvailabilityViewSet
 
 router = DefaultRouter()
 router.register("appointments", AppointmentViewSet, basename="appointment")

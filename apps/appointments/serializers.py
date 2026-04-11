@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from django.utils import timezone as tz
+from rest_framework import serializers
+
 from apps.appointments.models import Appointment
 
 

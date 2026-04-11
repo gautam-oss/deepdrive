@@ -1,0 +1,31 @@
+{% extends "notifications/email/base_email.html" %}
+
+{% block header %}Appointment Cancelled{% endblock %}
+
+{% block content %}
+<p>Hi {{ appointment.patient.user.first_name }},</p>
+<p>Your appointment has been cancelled. Here are the details of the cancelled appointment:</p>
+
+<div class="detail-box">
+  <div class="detail-row">
+    <span class="detail-label">Date</span>
+    <span class="detail-value">{{ appointment.scheduled_at|date:"l, N j, Y" }}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">Time</span>
+    <span class="detail-value">{{ appointment.scheduled_at|time:"H:i" }}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">Doctor</span>
+    <span class="detail-value">Dr. {{ appointment.doctor.user.full_name }}</span>
+  </div>
+  {% if appointment.cancellation_reason %}
+  <div class="detail-row">
+    <span class="detail-label">Reason</span>
+    <span class="detail-value">{{ appointment.cancellation_reason }}</span>
+  </div>
+  {% endif %}
+</div>
+
+<p>To schedule a new appointment, please contact the clinic or use the patient portal.</p>
+{% endblock %}

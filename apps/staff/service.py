@@ -2,6 +2,7 @@
 Staff service helpers — schedule lookups and doctor management utilities.
 """
 from datetime import date
+
 from apps.appointments.service import get_available_slots
 
 

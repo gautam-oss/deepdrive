@@ -31,4 +31,7 @@ DJANGO_SETTINGS_MODULE = "config.settings.local"
 python_files = ["tests.py", "test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -m 'not integration'"
+markers = [
+    "integration: marks tests as integration tests requiring Postgres (run with: pytest -m integration)",
+]

@@ -1,0 +1,1 @@
+Reminder: appointment tomorrow at {{ appointment.scheduled_at|time:"H:i" }}

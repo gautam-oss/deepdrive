@@ -60,7 +60,6 @@ class NotificationService:
     @classmethod
     def _send_email(cls, user, notification_type: str, context: dict, log: NotificationLog):
         from django.core.mail import send_mail
-        from django.template.loader import render_to_string
 
         subject, body = cls._render_template(notification_type, context)
         send_mail(

@@ -189,7 +189,6 @@ class StripeWebhookProcessor:
 
     def _get_or_create_subscription(self, stripe_sub: dict):
         from apps.billing.models import ClinicSubscription
-        from apps.tenants.models import Clinic
 
         customer_id = stripe_sub["customer"]
 
@@ -214,7 +213,6 @@ class StripeWebhookProcessor:
 
     def _sync_subscription(self, sub, stripe_sub: dict) -> None:
         """Update ClinicSubscription fields from a Stripe subscription object."""
-        from apps.billing.models import ClinicSubscription
         import datetime
 
         stripe_status = stripe_sub.get("status", "")
@@ -231,23 +229,23 @@ class StripeWebhookProcessor:
         # Period timestamps from Stripe are Unix timestamps
         if stripe_sub.get("current_period_start"):
             sub.current_period_start = datetime.datetime.fromtimestamp(
-                stripe_sub["current_period_start"], tz=datetime.timezone.utc
+                stripe_sub["current_period_start"], tz=datetime.UTC
             )
         if stripe_sub.get("current_period_end"):
             sub.current_period_end = datetime.datetime.fromtimestamp(
-                stripe_sub["current_period_end"], tz=datetime.timezone.utc
+                stripe_sub["current_period_end"], tz=datetime.UTC
             )
         if stripe_sub.get("trial_end"):
             sub.trial_end = datetime.datetime.fromtimestamp(
-                stripe_sub["trial_end"], tz=datetime.timezone.utc
+                stripe_sub["trial_end"], tz=datetime.UTC
             )
 
         sub.save()
 
     def _sync_clinic_status(self, sub) -> None:
         """Mirror subscription status onto the Clinic row for fast gating."""
-        from apps.tenants.models import Clinic
         from apps.billing.models import ClinicSubscription
+        from apps.tenants.models import Clinic
 
         status_to_clinic = {
             ClinicSubscription.SubscriptionStatus.ACTIVE: "active",

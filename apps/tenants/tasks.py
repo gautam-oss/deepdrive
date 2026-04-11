@@ -1,5 +1,5 @@
-from celery import shared_task
 import structlog
+from celery import shared_task
 
 logger = structlog.get_logger(__name__)
 

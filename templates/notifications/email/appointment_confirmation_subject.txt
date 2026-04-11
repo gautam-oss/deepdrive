@@ -1,0 +1,1 @@
+Appointment confirmed — {{ appointment.scheduled_at|date:"D, N j" }} at {{ appointment.scheduled_at|time:"H:i" }}

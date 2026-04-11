@@ -21,7 +21,6 @@ Call sequence:
 Triggered by: clinic signup form → ProvisionClinicTask Celery task.
 """
 import structlog
-
 from django.db import transaction
 
 logger = structlog.get_logger(__name__)
@@ -52,7 +51,6 @@ class ClinicProvisioner:
         Full provisioning flow. Returns the created Clinic.
         Idempotent: if the clinic already exists the method returns early.
         """
-        from apps.tenants.models import Clinic, Domain
 
         # Step 1 — create tenant (schema is auto-created by TenantMixin.save())
         clinic = self._get_or_create_clinic()
@@ -106,8 +104,9 @@ class ClinicProvisioner:
         return clinic
 
     def _ensure_domain(self, clinic):
-        from apps.tenants.models import Domain
         from django.conf import settings
+
+        from apps.tenants.models import Domain
 
         # Subdomain: <slug>.yourapp.com
         # BASE_DOMAIN must be set in settings; fall back to localhost for local dev
@@ -169,9 +168,10 @@ class ClinicProvisioner:
         return user
 
     def _ensure_stripe_customer(self, clinic):
-        from apps.billing.models import ClinicSubscription
         import stripe
         from django.conf import settings
+
+        from apps.billing.models import ClinicSubscription
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         if not stripe.api_key or stripe.api_key.startswith("sk_test_placeholder"):

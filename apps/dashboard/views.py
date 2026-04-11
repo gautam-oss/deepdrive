@@ -7,12 +7,12 @@ Each role sees exactly what they need:
   - Doctor     → their own today's schedule + upcoming appointments
   - Receptionist → today's appointments + quick booking
 """
+import structlog
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import render, redirect
+from django.http import HttpResponseForbidden
+from django.shortcuts import redirect, render
 from django.utils import timezone as tz
 from django.views import View
-from django.http import HttpResponseForbidden
-import structlog
 
 from apps.authentication.models import User
 
@@ -46,8 +46,9 @@ class DashboardView(LoginRequiredMixin, View):
             return redirect("dashboard:doctor")
         if role == User.Role.RECEPTIONIST:
             return redirect("dashboard:receptionist")
-        # Patients don't have a staff dashboard
-        return HttpResponseForbidden("Patients do not have a staff dashboard.")
+        if role == User.Role.PATIENT:
+            return redirect("dashboard:patient")
+        return HttpResponseForbidden("Unrecognised role.")
 
 
 # ---------------------------------------------------------------------------
@@ -60,9 +61,9 @@ class AdminDashboardView(RoleRequiredMixin, View):
 
     def get(self, request):
         from apps.appointments.models import Appointment
-        from apps.staff.models import Doctor
-        from apps.patients.models import Patient
         from apps.authentication.models import User as UserModel
+        from apps.patients.models import Patient
+        from apps.staff.models import Doctor
 
         today = tz.localdate()
         context = {
@@ -98,7 +99,6 @@ class DoctorDashboardView(RoleRequiredMixin, View):
 
     def get(self, request):
         from apps.appointments.models import Appointment
-        from apps.staff.service import get_doctor_schedule
 
         today = tz.localdate()
         doctor = request.user.doctor_profile
@@ -152,5 +152,41 @@ class ReceptionistDashboardView(RoleRequiredMixin, View):
             "confirmed_count": today_appointments.filter(status=Appointment.Status.CONFIRMED).count(),
             "pending_count": today_appointments.filter(status=Appointment.Status.PENDING).count(),
             "no_show_count": today_appointments.filter(status=Appointment.Status.NO_SHOW).count(),
+        }
+        return render(request, self.template_name, context)
+
+
+# ---------------------------------------------------------------------------
+# Patient dashboard — their own appointments, upcoming + past
+# ---------------------------------------------------------------------------
+
+class PatientDashboardView(RoleRequiredMixin, View):
+    allowed_roles = (User.Role.PATIENT,)
+    template_name = "dashboard/patient.html"
+
+    def get(self, request):
+        from apps.appointments.models import Appointment
+
+        today = tz.localdate()
+        patient = request.user.patient_profile
+
+        upcoming = Appointment.objects.filter(
+            patient=patient,
+            scheduled_at__date__gte=today,
+            status__in=[Appointment.Status.CONFIRMED, Appointment.Status.PENDING],
+        ).select_related("doctor__user").order_by("scheduled_at")[:10]
+
+        past = Appointment.objects.filter(
+            patient=patient,
+            scheduled_at__date__lt=today,
+        ).exclude(
+            status=Appointment.Status.CANCELLED,
+        ).select_related("doctor__user").order_by("-scheduled_at")[:10]
+
+        context = {
+            "today": today,
+            "patient": patient,
+            "upcoming": upcoming,
+            "past": past,
         }
         return render(request, self.template_name, context)

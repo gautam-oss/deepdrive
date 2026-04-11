@@ -14,7 +14,6 @@ All sensitive actions MUST go through here, not directly to AuditLog.objects.cre
 so context injection (IP, user agent, request ID) is always applied.
 """
 import structlog
-from django.utils import timezone as tz
 
 logger = structlog.get_logger(__name__)
 
@@ -30,8 +29,8 @@ class AuditLogger:
         changes: dict = None,
         extra: dict = None,
     ) -> None:
-        from apps.audit.models import AuditLog
         from apps.audit.middleware import get_current_request_context
+        from apps.audit.models import AuditLog
 
         ctx = get_current_request_context()
 
@@ -93,4 +92,5 @@ class AuditLogger:
 
 # Alias for cleaner import
 from apps.audit.models import AuditLog
+
 AuditAction = AuditLog.Action

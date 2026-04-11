@@ -1,8 +1,8 @@
-from django.shortcuts import render, redirect
-from django.views import View
-from django import forms
-from django.utils.text import slugify
 import structlog
+from django import forms
+from django.shortcuts import redirect, render
+from django.utils.text import slugify
+from django.views import View
 
 logger = structlog.get_logger(__name__)
 

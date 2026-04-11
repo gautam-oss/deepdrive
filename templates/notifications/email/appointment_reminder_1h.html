@@ -1,0 +1,25 @@
+{% extends "notifications/email/base_email.html" %}
+
+{% block header %}Appointment Reminder — 1 Hour{% endblock %}
+
+{% block content %}
+<p>Hi {{ appointment.patient.user.first_name }},</p>
+<p>Your appointment is in <strong>1 hour</strong>. See you soon!</p>
+
+<div class="detail-box">
+  <div class="detail-row">
+    <span class="detail-label">Time</span>
+    <span class="detail-value">{{ appointment.scheduled_at|time:"H:i" }}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">Doctor</span>
+    <span class="detail-value">Dr. {{ appointment.doctor.user.full_name }}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">Duration</span>
+    <span class="detail-value">{{ appointment.duration_minutes }} minutes</span>
+  </div>
+</div>
+
+<p>Please plan to arrive 10 minutes early.</p>
+{% endblock %}

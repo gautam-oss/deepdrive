@@ -9,18 +9,18 @@ These tests MUST pass on every CI build. They verify that:
 Per spec: "A valid token from Clinic A must never return data from
 Clinic B, even if the resource ID is guessed correctly."
 """
-import pytest
-from django.test import SimpleTestCase, RequestFactory
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
+
+from django.test import RequestFactory, SimpleTestCase
 
 from apps.authentication.models import User
 from apps.authentication.permissions import (
+    CanCancelAppointment,
     IsClinicAdmin,
     IsDoctor,
-    IsReceptionist,
     IsPatient,
+    IsReceptionist,
     IsStaff,
-    CanCancelAppointment,
     _within_cancellation_window,
 )
 
@@ -96,8 +96,9 @@ class TestCancellationPermissions(SimpleTestCase):
         assert CanCancelAppointment().has_object_permission(request, None, appt) is False
 
     def test_patient_cannot_cancel_outside_window(self):
-        from django.utils import timezone as tz
         from datetime import timedelta
+
+        from django.utils import timezone as tz
 
         request, user = self._make_request_user(User.Role.PATIENT)
         appt = self._make_appointment(patient_user=user)
@@ -106,8 +107,9 @@ class TestCancellationPermissions(SimpleTestCase):
         assert CanCancelAppointment().has_object_permission(request, None, appt) is False
 
     def test_patient_can_cancel_within_window(self):
-        from django.utils import timezone as tz
         from datetime import timedelta
+
+        from django.utils import timezone as tz
 
         request, user = self._make_request_user(User.Role.PATIENT)
         appt = self._make_appointment(patient_user=user)
@@ -120,8 +122,9 @@ class TestCancellationWindow(SimpleTestCase):
     """Cancellation window boundary conditions."""
 
     def _make_appt(self, hours_from_now: float):
-        from django.utils import timezone as tz
         from datetime import timedelta
+
+        from django.utils import timezone as tz
         appt = MagicMock()
         appt.scheduled_at = tz.now() + timedelta(hours=hours_from_now)
         return appt

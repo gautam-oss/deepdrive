@@ -1,14 +1,16 @@
-from rest_framework import viewsets, status
-from rest_framework.response import Response
 import structlog
+from rest_framework import status, viewsets
+from rest_framework.response import Response
 
-from apps.authentication.permissions import (
-    IsAdminOrReceptionist, CanViewPatientRecord, TenantIsolationMixin,
-)
-from apps.patients.models import Patient
-from apps.patients.serializers import PatientSerializer, CreatePatientSerializer
 from apps.audit.logger import AuditLogger
 from apps.audit.models import AuditLog
+from apps.authentication.permissions import (
+    CanViewPatientRecord,
+    IsAdminOrReceptionist,
+    TenantIsolationMixin,
+)
+from apps.patients.models import Patient
+from apps.patients.serializers import CreatePatientSerializer, PatientSerializer
 
 logger = structlog.get_logger(__name__)
 
@@ -69,8 +71,9 @@ class PatientViewSet(TenantIsolationMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        from apps.authentication.models import User
         import secrets
+
+        from apps.authentication.models import User
 
         user = User.objects.create_user(
             email=data["email"],

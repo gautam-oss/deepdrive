@@ -1,0 +1,1 @@
+Payment confirmed — {{ clinic.name }} subscription

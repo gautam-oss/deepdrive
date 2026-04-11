@@ -1,0 +1,63 @@
+{% extends "base/layout.html" %}
+{% block title %}My Appointments{% endblock %}
+
+{% block content %}
+<h1>My Appointments</h1>
+
+<div class="section-title">Upcoming</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Time</th><th>Doctor</th><th>Duration</th><th>Status</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for appt in upcoming %}
+      <tr>
+        <td>{{ appt.scheduled_at|date:"D, N j, Y" }}</td>
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>Dr. {{ appt.doctor.user.full_name }}</td>
+        <td>{{ appt.duration_minutes }} min</td>
+        <td><span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span></td>
+        <td>
+          {% if appt.status == 'confirmed' or appt.status == 'pending' %}
+          <form method="post" action="/api/v1/appointments/{{ appt.pk }}/cancel/"
+                style="display:inline"
+                onsubmit="return confirm('Cancel this appointment?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" style="font-size:0.75rem">Cancel</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" style="color:#888;text-align:center;padding:1rem">No upcoming appointments.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="section-title">Past Appointments</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Time</th><th>Doctor</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for appt in past %}
+      <tr>
+        <td>{{ appt.scheduled_at|date:"D, N j, Y" }}</td>
+        <td>{{ appt.scheduled_at|time:"H:i" }}</td>
+        <td>Dr. {{ appt.doctor.user.full_name }}</td>
+        <td><span class="badge badge-{{ appt.status }}">{{ appt.get_status_display }}</span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" style="color:#888;text-align:center;padding:1rem">No past appointments on record.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

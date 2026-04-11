@@ -26,6 +26,7 @@ Object-level permissions enforced via django-guardian.
 Row-level enforcement happens in queryset filters in the service layer.
 """
 from rest_framework.permissions import BasePermission
+
 from apps.authentication.models import User
 
 
@@ -148,9 +149,10 @@ class TenantIsolationMixin:
             self._assert_tenant_membership(request.user)
 
     def _assert_tenant_membership(self, user):
-        from django_tenants.utils import get_current_schema_name
-        current_schema = get_current_schema_name()
-        if current_schema == "public":
+        from django.db import connection
+        from django_tenants.utils import get_public_schema_name
+        current_schema = connection.schema_name
+        if current_schema == get_public_schema_name():
             return  # Public schema endpoints don't have tenant isolation
         # If the user's DB row exists in the current schema's search_path,
         # the query would have found it — no extra check needed beyond
@@ -171,6 +173,7 @@ def _within_cancellation_window(appointment) -> bool:
     Adjust the window constant to match clinic policy.
     """
     from datetime import timedelta
+
     from django.utils import timezone as tz
     CANCELLATION_WINDOW = timedelta(hours=24)
     return tz.now() < appointment.scheduled_at - CANCELLATION_WINDOW
